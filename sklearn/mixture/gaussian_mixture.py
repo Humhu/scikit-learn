@@ -153,7 +153,7 @@ def _estimate_gaussian_covariances_full(resp, X, nk, means, reg_covar):
 
     means : array-like, shape (n_components, n_features)
 
-    reg_covar : float
+    reg_covar : float or array-like, shape (n_features,)
 
     Returns
     -------
@@ -182,7 +182,7 @@ def _estimate_gaussian_covariances_tied(resp, X, nk, means, reg_covar):
 
     means : array-like, shape (n_components, n_features)
 
-    reg_covar : float
+    reg_covar : float or array-like, shape (n_features,)
 
     Returns
     -------
@@ -210,7 +210,7 @@ def _estimate_gaussian_covariances_diag(resp, X, nk, means, reg_covar):
 
     means : array-like, shape (n_components, n_features)
 
-    reg_covar : float
+    reg_covar : float or array-like, shape (n_features,)
 
     Returns
     -------
@@ -236,7 +236,7 @@ def _estimate_gaussian_covariances_spherical(resp, X, nk, means, reg_covar):
 
     means : array-like, shape (n_components, n_features)
 
-    reg_covar : float
+    reg_covar : float or array-like, shape (n_features,)
 
     Returns
     -------
@@ -258,7 +258,7 @@ def _estimate_gaussian_parameters(X, resp, reg_covar, covariance_type):
     resp : array-like, shape (n_samples, n_components)
         The responsibilities for each data sample in X.
 
-    reg_covar : float
+    reg_covar : float or array-like, shape (n_features,)
         The regularization added to the diagonal of the covariance matrices.
 
     covariance_type : {'full', 'tied', 'diag', 'spherical'}
@@ -462,7 +462,7 @@ class GaussianMixture(BaseMixture):
         The convergence threshold. EM iterations will stop when the
         lower bound average gain is below this threshold.
 
-    reg_covar : float, defaults to 1e-6.
+    reg_covar : float or array-like, shape (n_features,), defaults to 1e-6.
         Non-negative regularization added to the diagonal of covariance.
         Allows to assure that the covariance matrices are all positive.
 
@@ -509,6 +509,10 @@ class GaussianMixture(BaseMixture):
         If 'warm_start' is True, the solution of the last fitting is used as
         initialization for the next call of fit(). This can speed up
         convergence when fit is called several time on similar problems.
+
+    proc_covar : function taking and returning covariance matrix, optional
+        Processes a covariance matrix after M-step fitting. Can be used to
+        enforce complex sparsity patterns.
 
     verbose : int, default to 0.
         Enable verbose output. If 1 then it prints the current
@@ -582,7 +586,7 @@ class GaussianMixture(BaseMixture):
     def __init__(self, n_components=1, covariance_type='full', tol=1e-3,
                  reg_covar=1e-6, max_iter=100, n_init=1, init_params='kmeans',
                  weights_init=None, means_init=None, precisions_init=None,
-                 random_state=None, warm_start=False,
+                 random_state=None, warm_start=False, proc_covar=None,
                  verbose=0, verbose_interval=10):
         super(GaussianMixture, self).__init__(
             n_components=n_components, tol=tol, reg_covar=reg_covar,
@@ -594,6 +598,7 @@ class GaussianMixture(BaseMixture):
         self.weights_init = weights_init
         self.means_init = means_init
         self.precisions_init = precisions_init
+        self.proc_covar = proc_covar
 
     def _check_parameters(self, X):
         """Check the Gaussian mixture parameters are well defined."""
@@ -666,6 +671,8 @@ class GaussianMixture(BaseMixture):
         self.weights_, self.means_, self.covariances_ = (
             _estimate_gaussian_parameters(X, np.exp(log_resp), self.reg_covar,
                                           self.covariance_type))
+        if self.proc_covar is not None:
+            self.covariances_ = np.asarray([self.proc_covar(c) for c in self.covariances_])
         self.weights_ /= n_samples
         self.precisions_cholesky_ = _compute_precision_cholesky(
             self.covariances_, self.covariance_type)

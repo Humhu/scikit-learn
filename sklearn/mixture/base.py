@@ -112,11 +112,11 @@ class BaseMixture(six.with_metaclass(ABCMeta, DensityMixin, BaseEstimator)):
                              "Estimation requires at least one iteration"
                              % self.max_iter)
 
-        if self.reg_covar < 0.:
-            raise ValueError("Invalid value for 'reg_covar': %.5f "
+        if np.any(self.reg_covar < 0):
+            raise ValueError("Invalid value for 'reg_covar': %s "
                              "regularization on covariance must be "
                              "non-negative"
-                             % self.reg_covar)
+                             % str(self.reg_covar))
 
         # Check all the parameters values of the derived class
         self._check_parameters(X)
